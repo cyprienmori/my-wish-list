@@ -1,5 +1,10 @@
 # My Wish List : guide simple
 
+**Adresse du site :** https://cyprienmori.github.io/my-wish-list/
+
+- Hébergement : GitHub Pages (dépôt `cyprienmori/my-wish-list`), gratuit.
+- Base de données : Firebase, projet `my-wish-list-d5bd2` (formule gratuite Spark).
+
 ## Les fichiers du projet (ces noms ne changeront plus)
 
 | Fichier | À quoi il sert | Faut-il y toucher ? |
@@ -11,7 +16,8 @@
 | `js/firebase-sdk.js` | Le chargement de Firebase | Non |
 | `js/firebase-config.js` | **La configuration de VOTRE projet Firebase** | Oui, une seule fois |
 | `firestore.rules` | Les règles de sécurité de la base | À copier dans la console Firebase |
-| `firebase.json`, `robots.txt` | Réglages de l'hébergement et protection contre Google | Non |
+| `robots.txt`, `.nojekyll` | Protection contre Google, réglage GitHub Pages | Non |
+| `firebase.json` | Réglages si l'on passe un jour à Firebase Hosting | Non |
 
 ## Mettre en place Firebase (une seule fois, gratuit, sans carte bancaire)
 
@@ -24,7 +30,8 @@
 
 ## Modifier le site plus tard
 
-- Après une modification, remettez les fichiers en ligne de la même façon qu'à la première mise en ligne.
+- Le plus simple : demandez la modification à Claude, qui l'envoie directement sur GitHub.
+- Sinon, sur https://github.com/cyprienmori/my-wish-list, utilisez « Add file → Upload files » pour remplacer un fichier (même nom, même dossier). Le site se met à jour en 1 à 2 minutes.
 - Pour être sûr que tout le monde voie la nouvelle version, augmentez le numéro `?v=1` en `?v=2` dans `index.html` (sur les deux lignes `style.css?v=` et `app.js?v=`).
 - Si vous modifiez `firestore.rules`, recopiez son contenu dans la console Firebase (Firestore → Règles → Publier).
 
