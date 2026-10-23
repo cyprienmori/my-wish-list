@@ -144,7 +144,10 @@ let renderQueued = false;
 function scheduleRender() {
   if (renderQueued) return;
   renderQueued = true;
-  requestAnimationFrame(() => { renderQueued = false; render(); });
+  // requestAnimationFrame est suspendu dans un onglet caché : setTimeout prend le relais
+  const go = () => { if (!renderQueued) return; renderQueued = false; render(); };
+  requestAnimationFrame(go);
+  setTimeout(go, 60);
 }
 D.subscribe(scheduleRender);
 
