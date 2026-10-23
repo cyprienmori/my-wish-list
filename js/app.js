@@ -189,9 +189,12 @@ function brand(small = false) {
   return `<a class="brand ${small ? "small" : ""}" href="#/">${STAR}<span>My Wish List</span></a>`;
 }
 function heroFrame(inner) {
+  // la partie verte (en-tête) s'adapte à la hauteur du texte
+  const i = inner.indexOf('<div class="panel">');
+  const head = i >= 0 ? inner.slice(0, i) : inner, rest = i >= 0 ? inner.slice(i) : "";
   return `<div class="hero-page">
-    <div class="hero-bg">${snowLayer(18)}<div class="garland"></div></div>
-    <div class="hero-inner">${inner}</div>
+    <div class="hero-head">${snowLayer(18)}<div class="garland"></div><div class="hero-head-in">${head}</div></div>
+    <div class="hero-inner">${rest}</div>
     <footer class="foot">My Wish List · listes de cadeaux en famille</footer>
   </div>`;
 }
