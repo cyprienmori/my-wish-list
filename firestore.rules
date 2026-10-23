@@ -1,0 +1,119 @@
+rules_version = '2';
+// ─────────────────────────────────────────────────────────────
+//  RÈGLES DE SÉCURITÉ — My Wish List
+//  À copier dans : console Firebase → Firestore Database → Règles
+//  Elles garantissent, côté serveur :
+//   • chacun ne modifie que SES données (profil, liste, réservations) ;
+//   • un groupe n'est lisible que par qui connaît son lien ;
+//   • le destinataire d'un cadeau ne peut jamais lire qui l'a réservé/acheté ;
+//   • deux personnes ne peuvent pas réserver le même cadeau.
+// ─────────────────────────────────────────────────────────────
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function text(v, min, max) { return v is string && v.size() >= min && v.size() <= max; }
+    function isMember(gid) {
+      return exists(/databases/$(database)/documents/groups/$(gid)/members/$(me()));
+    }
+    function willBeMember(gid) {
+      return existsAfter(/databases/$(database)/documents/groups/$(gid)/members/$(me()));
+    }
+
+    // ---------- Profils (privés) ----------
+    match /profiles/{uid} {
+      allow read: if signedIn() && me() == uid;
+      allow create, update: if signedIn() && me() == uid
+        && request.resource.data.keys().hasOnly(['name', 'createdAt'])
+        && text(request.resource.data.name, 1, 40);
+      allow delete: if false;
+
+      // ma liste personnelle, mes groupes, mes réservations/achats
+      match /{sub}/{docId} {
+        allow read, write: if signedIn() && me() == uid
+          && sub in ['gifts', 'memberships', 'actions'];
+      }
+    }
+
+    // ---------- Groupes ----------
+    match /groups/{gid} {
+      // On ne peut lire un groupe qu'en connaissant son identifiant (le lien).
+      // Lister tous les groupes est interdit.
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['name', 'createdBy', 'createdAt'])
+        && request.resource.data.createdBy == me()
+        && text(request.resource.data.name, 1, 60)
+        && willBeMember(gid);
+      allow update: if signedIn()
+        && resource.data.createdBy == me()
+        && request.resource.data.createdBy == me()
+        && request.resource.data.keys().hasOnly(['name', 'createdBy', 'createdAt'])
+        && text(request.resource.data.name, 1, 60);
+      allow delete: if false;
+
+      match /members/{uid} {
+        allow read: if signedIn();
+        allow create, update: if signedIn() && me() == uid
+          && existsAfter(/databases/$(database)/documents/groups/$(gid))
+          && request.resource.data.keys().hasOnly(['name', 'published', 'joinedAt'])
+          && text(request.resource.data.name, 1, 40)
+          && request.resource.data.published is bool;
+        allow delete: if signedIn() && me() == uid;
+      }
+
+      match /gifts/{giftId} {
+        allow read: if signedIn();
+        allow create: if signedIn()
+          && request.resource.data.ownerUid == me()
+          && willBeMember(gid)
+          && validGift();
+        allow update: if signedIn()
+          && resource.data.ownerUid == me()
+          && request.resource.data.ownerUid == me()
+          && validGift();
+        allow delete: if signedIn() && (resource == null || resource.data.ownerUid == me());
+      }
+    }
+
+    function validGift() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['ownerUid', 'ownerName', 'title', 'description', 'price', 'url', 'imageUrl', 'createdAt', 'updatedAt'])
+        && text(d.title, 1, 120)
+        && text(d.ownerName, 1, 40)
+        && (!('description' in d) || text(d.description, 0, 600))
+        && (!('price' in d) || text(d.price, 0, 30))
+        && (!('url' in d) || text(d.url, 0, 600))
+        && (!('imageUrl' in d) || text(d.imageUrl, 0, 600));
+    }
+
+    // ---------- Réservations / achats ----------
+    // Un seul document par cadeau, commun à tous les groupes :
+    // un cadeau acheté dans un groupe apparaît « déjà offert » dans les autres.
+    match /claims/{giftId} {
+      // Le destinataire ne peut JAMAIS lire ce document (effet de surprise).
+      allow get: if signedIn() && (resource == null || resource.data.recipientUid != me());
+      allow list: if false;
+
+      // Création impossible si le document existe déjà : pas de double réservation.
+      allow create: if signedIn()
+        && request.resource.data.byUid == me()
+        && request.resource.data.giftId == giftId
+        && request.resource.data.recipientUid != me()
+        && request.resource.data.status in ['reserved', 'bought']
+        && request.resource.data.groupId is string
+        && isMember(request.resource.data.groupId)
+        && get(/databases/$(database)/documents/groups/$(request.resource.data.groupId)/gifts/$(giftId)).data.ownerUid
+             == request.resource.data.recipientUid;
+
+      // Seul l'auteur peut passer de « réservé » à « acheté » ou annuler.
+      allow update: if signedIn()
+        && resource.data.byUid == me()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'at'])
+        && request.resource.data.status in ['reserved', 'bought'];
+      allow delete: if signedIn() && resource.data.byUid == me();
+    }
+  }
+}
